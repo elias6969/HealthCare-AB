@@ -1,0 +1,6 @@
+@HealthcareBooking.Api_HostAddress = http://localhost:5271
+
+GET {{HealthcareBooking.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
