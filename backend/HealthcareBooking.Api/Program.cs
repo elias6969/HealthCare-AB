@@ -1,4 +1,5 @@
 using HealthcareBooking.Api.Data;
+using HealthcareBooking.Api.Service;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<PasswordService>();
+builder.Services.AddScoped<UserService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
