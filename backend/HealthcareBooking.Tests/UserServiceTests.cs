@@ -1,8 +1,10 @@
+using System;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Xunit;
 using HealthcareBooking.Api.Data;
 using HealthcareBooking.Api.Entities;
 using HealthcareBooking.Api.Service;
-using Xunit;
 
 namespace HealthcareBooking.Tests;
 
@@ -23,17 +25,14 @@ public class UserServiceTests
     [Fact]
     public async Task CreateAccountAsync_CreatesUserSuccessfully()
     {
-        // Arrange
         var service = CreateService();
 
-        // Act
         var user = await service.CreateAccountAsync(
             "test@test.com",
             "Password123!",
             UserRole.Patient
         );
 
-        // Assert
         Assert.NotNull(user);
         Assert.Equal("test@test.com", user.Email);
         Assert.Equal(UserRole.Patient, user.Role);
@@ -43,7 +42,6 @@ public class UserServiceTests
     [Fact]
     public async Task CreateAccountAsync_DuplicateEmail_Throws()
     {
-        // Arrange
         var service = CreateService();
 
         await service.CreateAccountAsync(
@@ -52,7 +50,6 @@ public class UserServiceTests
             UserRole.Patient
         );
 
-        // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateAccountAsync(
                 "test@test.com",
@@ -63,9 +60,23 @@ public class UserServiceTests
     }
 
     [Fact]
-    public async Task LogInAsync_WrongPassword_ReturnsNull()
+    public async Task CreateAccountAsync_PasswordIsHashed()
     {
-        // Arrange
+        var service = CreateService();
+        var password = "Password123!";
+
+        var user = await service.CreateAccountAsync(
+            "secure@test.com",
+            password,
+            UserRole.Patient
+        );
+
+        Assert.NotEqual(password, user.PasswordHash);
+    }
+
+    [Fact]
+    public async Task LogInAsync_ValidCredentials_ReturnsUser()
+    {
         var service = CreateService();
 
         await service.CreateAccountAsync(
@@ -74,13 +85,71 @@ public class UserServiceTests
             UserRole.Patient
         );
 
-        // Act
+        var result = await service.LogInAsync(
+            "test@test.com",
+            "Password123!"
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal("test@test.com", result!.Email);
+        Assert.Equal(UserRole.Patient, result.Role);
+    }
+
+    [Fact]
+    public async Task LogInAsync_WrongPassword_ReturnsNull()
+    {
+        var service = CreateService();
+
+        await service.CreateAccountAsync(
+            "test@test.com",
+            "Password123!",
+            UserRole.Patient
+        );
+
         var result = await service.LogInAsync(
             "test@test.com",
             "WrongPassword"
         );
 
-        // Assert
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task LogInAsync_UnknownEmail_ReturnsNull()
+    {
+        var service = CreateService();
+
+        var result = await service.LogInAsync(
+            "unknown@test.com",
+            "Password123!"
+        );
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_ExistingUser_ReturnsTrue()
+    {
+        var service = CreateService();
+
+        var user = await service.CreateAccountAsync(
+            "delete@test.com",
+            "Password123!",
+            UserRole.Patient
+        );
+
+        var result = await service.DeleteAccountAsync(user.Id);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_NonExistentUser_ReturnsFalse()
+    {
+        var service = CreateService();
+
+        var result = await service.DeleteAccountAsync(999);
+
+        Assert.False(result);
     }
 }

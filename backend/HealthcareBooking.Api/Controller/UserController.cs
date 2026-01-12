@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using HealthcareBooking.Api.Service;
 using HealthcareBooking.Api.Contracts;
 using HealthcareBooking.Api.Entities;
+using HealthcareBooking.Api.Service;
+using System.Security.Claims;
 
 namespace HealthcareBooking.Api.Controllers;
 
@@ -10,17 +12,19 @@ namespace HealthcareBooking.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly UserService _userService;
+    private readonly JwtTokenService _jwtTokenService;
 
-    public UsersController(UserService userService)
+    public UsersController(
+        UserService userService,
+        JwtTokenService jwtTokenService)
     {
         _userService = userService;
+        _jwtTokenService = jwtTokenService;
     }
 
-    // --------------------
-    // REGISTER
-    // --------------------
-
-    // Registers a new patient account.
+    // Registration
+    // Creates a new patient account.
+    // Returns 409 if the email is already registered.
     [HttpPost("register/patient")]
     public async Task<IActionResult> RegisterPatient(RegisterDto dto)
     {
@@ -36,12 +40,12 @@ public class UsersController : ControllerBase
         }
         catch (InvalidOperationException)
         {
-            // Email already exists
             return Conflict("User already exists");
         }
     }
 
-    // Registers a new caregiver account.
+    // Creates a new caregiver account.
+    // Returns 409 if the email is already registered.
     [HttpPost("register/caregiver")]
     public async Task<IActionResult> RegisterCaregiver(RegisterDto dto)
     {
@@ -61,38 +65,47 @@ public class UsersController : ControllerBase
         }
     }
 
-    // --------------------
-    // LOGIN
-    // --------------------
-
-    // Verifies user credentials and returns basic user info.
+    // Authentication
+    // Validates credentials and returns a JWT if successful.
+    // The token should be sent in the Authorization header as:
+    // Authorization: Bearer <token>
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginDto dto)
     {
-        var user = await _userService.LogInAsync(
-            dto.Email,
-            dto.Password
-        );
+        var user = await _userService.LogInAsync(dto.Email, dto.Password);
 
         if (user == null)
             return Unauthorized("Invalid email or password");
 
+        var token = _jwtTokenService.GenerateToken(user);
+
         return Ok(new
         {
-            user.Id,
-            user.Email,
-            user.Role
+            token,
+            user = new
+            {
+                user.Id,
+                user.Email,
+                user.Role
+            }
         });
     }
 
-    // --------------------
-    // DELETE
-    // --------------------
-
-    // Deletes a user account by id.
+    // Account management
+    // Deletes the authenticated user's account.
+    // Users are not allowed to delete other accounts.
+    [Authorize]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!int.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        if (userId != id)
+            return Forbid();
+
         var deleted = await _userService.DeleteAccountAsync(id);
 
         if (!deleted)
@@ -101,10 +114,7 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
-    // --------------------
-    // HELPERS
-    // --------------------
-
+    // Helpers
     private IActionResult CreatedUserResponse(User user)
     {
         return Created(string.Empty, new
