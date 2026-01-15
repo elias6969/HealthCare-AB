@@ -1,0 +1,204 @@
+.auth-page {
+  min-height: 100vh;
+  min-width: 100vw;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background:
+    radial-gradient(1200px 600px at 10% 0%, rgba(0, 102, 204, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 40%, rgba(0, 102, 204, 0.12), transparent 55%),
+    linear-gradient(180deg, #f8fbff 0%, #f3f7ff 100%);
+  padding: 1rem;
+  position: relative;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.auth-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.75) 0%, transparent 55%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.65) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  outline: none;
+}
+
+.auth-card h1 {
+  margin-bottom: 0.5rem;
+  text-align: center;
+  color: var(--primary-color);
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.auth-card h2 {
+  margin-bottom: 0.5rem;
+  text-align: center;
+  color: #111827;
+  font-size: 1.625rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.auth-card .subtitle {
+  text-align: center;
+  color: #4b5563;
+  margin-bottom: 2rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.625rem;
+  color: #111827;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+}
+
+.auth-card input,
+.auth-card select {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  border: 1.5px solid #d1d5db;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  color: #111827;
+  outline: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  font-weight: 400;
+}
+
+.auth-card input:focus,
+.auth-card select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+  background: #ffffff;
+}
+
+.auth-card input::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.auth-card select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23111827' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  color: #111827;
+}
+
+.auth-card input:disabled,
+.auth-card select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primary-button {
+  width: 100%;
+  padding: 0.9375rem 1.5rem;
+  background: var(--primary-color);
+  color: #000000;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 0.75rem;
+  transition: all 0.2s ease;
+  outline: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 102, 204, 0.3);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px -2px rgba(0, 102, 204, 0.4);
+}
+
+.primary-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.error-message {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1.5px solid #fecaca;
+  outline: none;
+}
+
+.success-message {
+  background: #f0fdf4;
+  color: #065f46;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1.5px solid #bbf7d0;
+  outline: none;
+}
+
+.auth-link {
+  text-align: center;
+  margin-top: 1.75rem;
+  color: #4b5563;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.auth-link a {
+  color: var(--primary-color);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.auth-link a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
