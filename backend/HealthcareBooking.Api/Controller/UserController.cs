@@ -26,7 +26,7 @@ public class UsersController : ControllerBase
     // Creates a new patient account.
     // Returns 409 if the email is already registered.
     [HttpPost("register/patient")]
-    public async Task<IActionResult> RegisterPatient(RegisterDto dto)
+    public async Task<IActionResult> RegisterPatient([FromBody] RegisterDto dto)
     {
         try
         {
@@ -47,7 +47,7 @@ public class UsersController : ControllerBase
     // Creates a new caregiver account.
     // Returns 409 if the email is already registered.
     [HttpPost("register/caregiver")]
-    public async Task<IActionResult> RegisterCaregiver(RegisterDto dto)
+    public async Task<IActionResult> RegisterCaregiver([FromBody] RegisterDto dto)
     {
         try
         {
@@ -70,7 +70,7 @@ public class UsersController : ControllerBase
     // The token should be sent in the Authorization header as:
     // Authorization: Bearer <token>
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginDto dto)
+    public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var user = await _userService.LogInAsync(dto.Email, dto.Password);
 
