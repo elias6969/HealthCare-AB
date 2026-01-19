@@ -11,6 +11,7 @@ public class User
 
     public ICollection<Appointment> PatientAppointments { get; set; } = new List<Appointment>();
     public ICollection<Appointment> CaregiverAppointments { get; set; } = new List<Appointment>();
+    public ICollection<Availability> Availabilities { get; set; } = new List<Availability>();
 }
 
 public enum UserRole { Patient = 0, Caregiver = 1 }
