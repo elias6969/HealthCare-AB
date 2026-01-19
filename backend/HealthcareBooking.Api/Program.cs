@@ -29,6 +29,7 @@ builder.Services.AddScoped<PasswordService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AvailabilityService>();
+builder.Services.AddScoped<AvailableAppointmentService>();
 
 // Authentication / Authorization
 builder.Services
