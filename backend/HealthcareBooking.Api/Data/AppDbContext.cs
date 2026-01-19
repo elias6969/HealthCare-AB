@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
+    public DbSet<Availability> Availabilities => Set<Availability>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,21 @@ public class AppDbContext : DbContext
             // Caregiver relationship
             entity.HasOne(a => a.Caregiver)
                 .WithMany(u => u.CaregiverAppointments)
+                .HasForeignKey(a => a.CaregiverId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        //Availability configuration
+        modelBuilder.Entity<Availability>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+
+            entity.Property(a => a.Start).IsRequired();
+
+            entity.Property(a => a.End).IsRequired();
+
+            entity.HasOne(a => a.Caregiver)
+                .WithMany(u => u.Availabilities)
                 .HasForeignKey(a => a.CaregiverId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
