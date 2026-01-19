@@ -8,10 +8,9 @@ public class User
     public string PasswordHash { get; set; } = null!;
     public UserRole Role { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<Appointment> PatientAppointments { get; set; } = new List<Appointment>();
+    public ICollection<Appointment> CaregiverAppointments { get; set; } = new List<Appointment>();
 }
 
-public enum UserRole
-{
-    Patient = 0,
-    Caregiver = 1
-}
+public enum UserRole { Patient = 0, Caregiver = 1 }
