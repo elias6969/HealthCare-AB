@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth, formatRole, normalizeRoleId } from "../auth/AuthContext";
 import PatientAppointmentBooking from "../components/appointments/PatientAppointmentBooking";
 import Modal from "../components/ui/Modal";
+import CaregiverAvailability from "../components/availability/CaregiverAvailability";
 import {
   CalendarIcon,
   ChartBarIcon,
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const isPatient = roleId === 0 || roleText === "Patient";
   const isCaregiver = roleId === 1 || roleText === "Caregiver";
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [dashboardToast, setDashboardToast] = useState<string>("");
 
   useEffect(() => {
@@ -167,7 +169,7 @@ export default function Dashboard() {
 
             {isCaregiver && (
               <>
-                <button className="action-button" type="button">
+                <button className="action-button" type="button" onClick={() => setAvailabilityOpen(true)}>
                   <span className="action-icon">
                     <CalendarIcon />
                   </span>
@@ -202,6 +204,12 @@ export default function Dashboard() {
               onBooked={() => setDashboardToast("Appointment booked successfully.")}
               onRequestClose={() => setBookingOpen(false)}
             />
+          </Modal>
+        )}
+
+        {isCaregiver && (
+          <Modal open={availabilityOpen} title="Set availability" onClose={() => setAvailabilityOpen(false)}>
+            <CaregiverAvailability />
           </Modal>
         )}
 
