@@ -30,6 +30,8 @@ public class UserServiceTests
         var user = await service.CreateAccountAsync(
             "test@test.com",
             "Password123!",
+            "Elias",
+            "Testafter",
             UserRole.Patient
         );
 
@@ -47,6 +49,8 @@ public class UserServiceTests
         await service.CreateAccountAsync(
             "test@test.com",
             "Password123!",
+            "Elias",
+            "Testafter",
             UserRole.Patient
         );
 
@@ -54,6 +58,8 @@ public class UserServiceTests
             service.CreateAccountAsync(
                 "test@test.com",
                 "Password123!",
+                "Another",
+                "User",
                 UserRole.Patient
             )
         );
@@ -68,6 +74,8 @@ public class UserServiceTests
         var user = await service.CreateAccountAsync(
             "secure@test.com",
             password,
+            "Elias",
+            "Secure",
             UserRole.Patient
         );
 
@@ -82,6 +90,8 @@ public class UserServiceTests
         await service.CreateAccountAsync(
             "test@test.com",
             "Password123!",
+            "Elias",
+            "Testafter",
             UserRole.Patient
         );
 
@@ -103,6 +113,8 @@ public class UserServiceTests
         await service.CreateAccountAsync(
             "test@test.com",
             "Password123!",
+            "Elias",
+            "Testafter",
             UserRole.Patient
         );
 
@@ -135,6 +147,8 @@ public class UserServiceTests
         var user = await service.CreateAccountAsync(
             "delete@test.com",
             "Password123!",
+            "Elias",
+            "Delete",
             UserRole.Patient
         );
 
