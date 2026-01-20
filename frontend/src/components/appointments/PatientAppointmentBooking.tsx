@@ -4,40 +4,26 @@ import {
   listAvailableAppointmentSlots,
   type AvailableAppointmentSlot,
 } from "../../api/appointments";
+import ConfirmDialog from "../ui/ConfirmDialog";
 import "./patientAppointmentBooking.css";
 
 type Toast = { kind: "success" | "error"; message: string };
 
-type SavedCaregiver = { id: number; label?: string };
-
-const SAVED_CAREGIVERS_KEY = "savedCaregivers";
-
-function loadSavedCaregivers(): SavedCaregiver[] {
-  try {
-    const raw = localStorage.getItem(SAVED_CAREGIVERS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((x: any) => ({
-        id: Number(x?.id),
-        label: typeof x?.label === "string" ? x.label : undefined,
-      }))
-      .filter(x => Number.isFinite(x.id) && x.id > 0);
-  } catch {
-    return [];
-  }
-}
-
-function saveSavedCaregivers(list: SavedCaregiver[]) {
-  localStorage.setItem(SAVED_CAREGIVERS_KEY, JSON.stringify(list));
-}
-
 function slotKey(s: AvailableAppointmentSlot) {
-  return `${s.caregiverId}:${s.start}:${s.end}`;
+  // Unique key for a slot. Backend basically treats (caregiver + start + end) as the identity here.
+  return `${s.caregiver.id}:${s.start}:${s.end}`;
+}
+
+function displayCaregiverName(caregiver: AvailableAppointmentSlot["caregiver"]) {
+  // Backend might return empty first/last name sometimes. If that happens, we still show something sane.
+  const first = (caregiver.firstName ?? "").trim();
+  const last = (caregiver.lastName ?? "").trim();
+  const full = `${first} ${last}`.trim();
+  return full || `Caregiver #${caregiver.id}`;
 }
 
 function extractErrorMessage(err: any, fallback: string) {
+  // We always want a user-visible error. No "silent fail" / console-only errors.
   const status = err?.response?.status;
   if (status === 401 || status === 403) return "You are not authorized. Please log in again.";
 
@@ -52,7 +38,7 @@ function extractErrorMessage(err: any, fallback: string) {
 function toLocalDateKey(isoUtc: string) {
   const d = new Date(isoUtc);
   if (Number.isNaN(d.getTime())) return "Invalid date";
-  // YYYY-MM-DD in local time
+  // YYYY-MM-DD in local time. We use this for grouping and filtering by day.
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -79,40 +65,75 @@ function calcDurationMinutes(startIso: string, endIso: string) {
   return mins > 0 ? mins : null;
 }
 
-export default function PatientAppointmentBooking() {
-  const [savedCaregivers, setSavedCaregivers] = useState<SavedCaregiver[]>(() => loadSavedCaregivers());
-  const [selectedCaregiverId, setSelectedCaregiverId] = useState<number | null>(
-    savedCaregivers.length ? savedCaregivers[0]!.id : null
-  );
-  const [caregiverIdInput, setCaregiverIdInput] = useState("");
-  const [caregiverLabelInput, setCaregiverLabelInput] = useState("");
+type CaregiverOption = { id: number; firstName: string; lastName: string };
 
-  const caregiverId = useMemo(() => {
-    if (selectedCaregiverId) return selectedCaregiverId;
-    const n = Number(caregiverIdInput);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  }, [selectedCaregiverId, caregiverIdInput]);
+function caregiverLabel(c: CaregiverOption) {
+  const full = `${(c.firstName ?? "").trim()} ${(c.lastName ?? "").trim()}`.trim();
+  return full || `Caregiver #${c.id}`;
+}
 
+export default function PatientAppointmentBooking({
+  onBooked,
+  onRequestClose,
+}: {
+  onBooked?: () => void;
+  onRequestClose?: () => void;
+}) {
+  // null => All caregivers (we show everything by default)
+  const [selectedCaregiverId, setSelectedCaregiverId] = useState<number | null>(null);
+
+  // dateFilter === "all" means "show all days"
   const [dateFilter, setDateFilter] = useState<"all" | string>("all"); // local YYYY-MM-DD
-  const [slots, setSlots] = useState<AvailableAppointmentSlot[]>([]);
+  const [allSlots, setAllSlots] = useState<AvailableAppointmentSlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState<string>("");
 
+  // bookingKey is our "lock" so we don't spam the API / double-book.
   const [bookingKey, setBookingKey] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
 
+  const [pageSize, setPageSize] = useState<10 | 20 | 50>(20);
+  const [page, setPage] = useState(1);
+  // When you click "Book", we store the slot here and show the real confirm dialog.
+  const [confirmSlot, setConfirmSlot] = useState<AvailableAppointmentSlot | null>(null);
+
   const toastTimer = useRef<number | null>(null);
   function showToast(next: Toast) {
+    // Quick feedback for success/errors. Auto-hides after a few seconds.
     setToast(next);
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 4500);
   }
 
+  const visibleSlots = useMemo(() => {
+    // Filter by caregiver. If "All caregivers" then don't filter.
+    return selectedCaregiverId
+      ? allSlots.filter(s => s.caregiver.id === selectedCaregiverId)
+      : allSlots;
+  }, [allSlots, selectedCaregiverId]);
+
+  const filteredSortedSlots = useMemo(() => {
+    // Filter by date, then sort by start time so it reads like a real schedule.
+    const base =
+      dateFilter === "all"
+        ? visibleSlots
+        : visibleSlots.filter(s => toLocalDateKey(s.start) === dateFilter);
+    return [...base].sort((a, b) => a.start.localeCompare(b.start));
+  }, [visibleSlots, dateFilter]);
+
+  const totalSlots = filteredSortedSlots.length;
+  const totalPages = Math.max(1, Math.ceil(totalSlots / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageSlots = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredSortedSlots.slice(start, start + pageSize);
+  }, [filteredSortedSlots, pageSize, safePage]);
+
   const grouped = useMemo(() => {
+    // Group the current page by local day so the list is easy to scan.
     const map = new Map<string, AvailableAppointmentSlot[]>();
-    for (const s of slots) {
+    for (const s of pageSlots) {
       const key = toLocalDateKey(s.start);
-      if (dateFilter !== "all" && key !== dateFilter) continue;
       const arr = map.get(key) ?? [];
       arr.push(s);
       map.set(key, arr);
@@ -123,52 +144,70 @@ export default function PatientAppointmentBooking() {
       arr.sort((x, y) => x.start.localeCompare(y.start));
     }
     return days;
-  }, [slots, dateFilter]);
+  }, [pageSlots]);
 
   const availableDateKeys = useMemo(() => {
+    // This powers the "Date" dropdown. It should reflect current caregiver filter.
     const set = new Set<string>();
-    for (const s of slots) set.add(toLocalDateKey(s.start));
+    for (const s of visibleSlots) set.add(toLocalDateKey(s.start));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [slots]);
+  }, [visibleSlots]);
 
   const loadAbortRef = useRef<AbortController | null>(null);
 
-  async function loadSlots(nextCaregiverId: number) {
+  const [caregiverOptions, setCaregiverOptions] = useState<CaregiverOption[]>([]);
+  const [caregiverOptionsLoading, setCaregiverOptionsLoading] = useState(false);
+  const [caregiverOptionsError, setCaregiverOptionsError] = useState("");
+
+  async function loadAvailability() {
+    // One call to load "truth from backend":
+    // - all caregivers + all slots
+    // - then we derive caregiver dropdown from that list
+    setCaregiverOptionsError("");
+    setCaregiverOptionsLoading(true);
     setSlotsError("");
     setSlotsLoading(true);
-    loadAbortRef.current?.abort();
-    const controller = new AbortController();
-    loadAbortRef.current = controller;
     try {
-      const data = await listAvailableAppointmentSlots(nextCaregiverId);
-      if (controller.signal.aborted) return;
-      setSlots(data);
-      // If a date is selected, keep it only if it's still present.
+      // Backend supports listing slots across caregivers; we derive caregiver list from that response.
+      const all = await listAvailableAppointmentSlots();
+      setAllSlots(all);
+      setPage(1);
+      const unique = new Map<number, CaregiverOption>();
+      for (const s of all) {
+        unique.set(s.caregiver.id, {
+          id: s.caregiver.id,
+          firstName: s.caregiver.firstName,
+          lastName: s.caregiver.lastName,
+        });
+      }
+      const list = Array.from(unique.values()).sort((a, b) =>
+        caregiverLabel(a).localeCompare(caregiverLabel(b))
+      );
+      setCaregiverOptions(list);
+
+      // Keep date filter only if it still exists
       setDateFilter(prev => {
         if (prev === "all") return prev;
-        const exists = data.some(s => toLocalDateKey(s.start) === prev);
+        const exists = all.some(s => toLocalDateKey(s.start) === prev);
         return exists ? prev : "all";
       });
     } catch (err: any) {
-      if (controller.signal.aborted) return;
-      setSlots([]);
-      setSlotsError(extractErrorMessage(err, "Failed to load available slots."));
+      setAllSlots([]);
+      setCaregiverOptions([]);
+      const msg = extractErrorMessage(err, "Failed to load availability.");
+      setCaregiverOptionsError(msg);
+      setSlotsError(msg);
     } finally {
-      if (!controller.signal.aborted) setSlotsLoading(false);
+      setCaregiverOptionsLoading(false);
+      setSlotsLoading(false);
     }
   }
 
-  // Auto-load when caregiver changes (debounced lightly)
+  // initial load (caregivers list)
   useEffect(() => {
-    if (!caregiverId) {
-      setSlots([]);
-      setSlotsError("");
-      return;
-    }
-    const t = window.setTimeout(() => loadSlots(caregiverId), 250);
-    return () => window.clearTimeout(t);
+    loadAvailability();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caregiverId]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -177,72 +216,49 @@ export default function PatientAppointmentBooking() {
     };
   }, []);
 
-  function onSelectSaved(value: string) {
-    if (value === "custom") {
-      setSelectedCaregiverId(null);
-      return;
-    }
-    const id = Number(value);
-    if (Number.isFinite(id) && id > 0) {
-      setSelectedCaregiverId(id);
-      setCaregiverIdInput("");
-    }
-  }
+  useEffect(() => {
+    // Reset pagination when filters change, otherwise you can land on a page that doesn't exist anymore.
+    setPage(1);
+  }, [selectedCaregiverId, dateFilter]);
 
-  function addSavedCaregiver() {
-    const id = caregiverId ?? Number(caregiverIdInput);
-    if (!Number.isFinite(id) || id <= 0) {
-      showToast({ kind: "error", message: "Enter a valid caregiver ID to save." });
-      return;
-    }
-    const next: SavedCaregiver = { id, label: caregiverLabelInput.trim() || undefined };
-    const merged = [next, ...savedCaregivers.filter(c => c.id !== id)].slice(0, 10);
-    setSavedCaregivers(merged);
-    saveSavedCaregivers(merged);
-    setSelectedCaregiverId(id);
-    setCaregiverIdInput("");
-    setCaregiverLabelInput("");
-    showToast({ kind: "success", message: "Saved caregiver." });
-  }
-
-  function removeSavedCaregiver(id: number) {
-    const merged = savedCaregivers.filter(c => c.id !== id);
-    setSavedCaregivers(merged);
-    saveSavedCaregivers(merged);
-    if (selectedCaregiverId === id) setSelectedCaregiverId(merged.length ? merged[0]!.id : null);
-    showToast({ kind: "success", message: "Removed saved caregiver." });
-  }
-
-  async function handleBook(slot: AvailableAppointmentSlot) {
+  async function performBooking(slot: AvailableAppointmentSlot) {
+    // Actual booking call (triggered ONLY after user confirms in the real dialog)
     const key = slotKey(slot);
     if (bookingKey) return;
 
-    const ok = window.confirm(
-      `Book appointment with caregiver #${slot.caregiverId} on ${formatLocalDateHeading(
-        toLocalDateKey(slot.start)
-      )} from ${formatLocalTime(slot.start)} to ${formatLocalTime(slot.end)}?`
-    );
-    if (!ok) return;
-
     setBookingKey(key);
     try {
-      await bookAppointment({ caregiverId: slot.caregiverId, start: slot.start, end: slot.end });
+      await bookAppointment({ caregiverId: slot.caregiver.id, start: slot.start, end: slot.end });
       showToast({ kind: "success", message: "Appointment booked successfully." });
 
-      // Remove immediately, then re-sync.
-      setSlots(prev => prev.filter(s => slotKey(s) !== key));
-      if (caregiverId) await loadSlots(caregiverId);
+      // Remove immediately so the UI feels responsive, then re-sync from backend for correctness.
+      setAllSlots(prev => prev.filter(s => slotKey(s) !== key));
+      await loadAvailability();
+
+      return true;
     } catch (err: any) {
       const status = err?.response?.status;
       const msg = extractErrorMessage(err, "Booking failed. Please try again.");
       showToast({ kind: "error", message: msg });
 
-      // Conflicts: re-sync to reflect latest availability.
-      if (status === 409 && caregiverId) {
-        await loadSlots(caregiverId);
+      // Conflicts: re-sync to reflect latest availability (someone else booked it first).
+      if (status === 409) {
+        await loadAvailability();
       }
+      return false;
     } finally {
       setBookingKey(null);
+    }
+  }
+
+  async function confirmBooking() {
+    // User pressed "Confirm booking" in the dialog.
+    if (!confirmSlot) return;
+    const ok = await performBooking(confirmSlot);
+    if (ok) {
+      setConfirmSlot(null);
+      onBooked?.();
+      onRequestClose?.();
     }
   }
 
@@ -262,88 +278,84 @@ export default function PatientAppointmentBooking() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={!!confirmSlot}
+        title="Confirm booking"
+        description="Please review the appointment details before confirming."
+        confirmText="Confirm booking"
+        cancelText="Cancel"
+        loading={bookingKey !== null}
+        onCancel={() => (bookingKey ? null : setConfirmSlot(null))}
+        onConfirm={confirmBooking}
+      >
+        {confirmSlot ? (
+          <div className="booking-confirm-details">
+            <div className="booking-confirm-row">
+              <div className="booking-confirm-label">Caregiver</div>
+              <div className="booking-confirm-value">{displayCaregiverName(confirmSlot.caregiver)}</div>
+            </div>
+            <div className="booking-confirm-row">
+              <div className="booking-confirm-label">Date</div>
+              <div className="booking-confirm-value">{formatLocalDateHeading(toLocalDateKey(confirmSlot.start))}</div>
+            </div>
+            <div className="booking-confirm-row">
+              <div className="booking-confirm-label">Time</div>
+              <div className="booking-confirm-value">
+                {formatLocalTime(confirmSlot.start)} – {formatLocalTime(confirmSlot.end)}
+              </div>
+            </div>
+            <div className="booking-confirm-row">
+              <div className="booking-confirm-label">Duration</div>
+              <div className="booking-confirm-value">
+                {calcDurationMinutes(confirmSlot.start, confirmSlot.end) ?? "—"} min
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </ConfirmDialog>
+
       <div className="booking-panel">
         <div className="booking-row">
           <div className="booking-field">
-            <label className="booking-label" htmlFor="savedCaregiver">
+            <label className="booking-label" htmlFor="caregiverSelect">
               Caregiver
             </label>
             <select
-              id="savedCaregiver"
+              id="caregiverSelect"
               className="booking-select"
-              value={selectedCaregiverId ?? "custom"}
-              onChange={e => onSelectSaved(e.target.value)}
-              disabled={slotsLoading || bookingKey !== null}
+              value={selectedCaregiverId ?? "all"}
+              onChange={e => {
+                const v = e.target.value;
+                setSelectedCaregiverId(v === "all" ? null : Number(v) || null);
+                setDateFilter("all");
+              }}
+              disabled={caregiverOptionsLoading || slotsLoading || bookingKey !== null}
             >
-              {savedCaregivers.map(c => (
+              <option value="all">All caregivers</option>
+              {!caregiverOptionsLoading && caregiverOptions.length === 0 && (
+                <option value="">No caregivers available</option>
+              )}
+              {caregiverOptions.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.label ? `${c.label} (#${c.id})` : `Caregiver #${c.id}`}
+                  {caregiverLabel(c)}
                 </option>
               ))}
-              <option value="custom">Enter a caregiver ID…</option>
             </select>
           </div>
 
-          {selectedCaregiverId !== null && (
-            <div className="booking-inline-actions">
-              <button
-                className="booking-link-button"
-                type="button"
-                onClick={() => removeSavedCaregiver(selectedCaregiverId)}
-                disabled={slotsLoading || bookingKey !== null}
-              >
-                Remove saved
-              </button>
-            </div>
-          )}
+          <div className="booking-inline-actions booking-inline-actions-right">
+            <button
+              className="booking-button secondary"
+              type="button"
+              onClick={loadAvailability}
+              disabled={caregiverOptionsLoading || slotsLoading || bookingKey !== null}
+            >
+              {caregiverOptionsLoading ? "Loading..." : "Refresh availability"}
+            </button>
+          </div>
         </div>
 
-        {selectedCaregiverId === null && (
-          <div className="booking-row">
-            <div className="booking-field">
-              <label className="booking-label" htmlFor="caregiverId">
-                Caregiver ID
-              </label>
-              <input
-                id="caregiverId"
-                className="booking-input"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                placeholder="e.g. 7"
-                value={caregiverIdInput}
-                onChange={e => setCaregiverIdInput(e.target.value)}
-                disabled={slotsLoading || bookingKey !== null}
-              />
-            </div>
-
-            <div className="booking-field">
-              <label className="booking-label" htmlFor="caregiverLabel">
-                Label (optional)
-              </label>
-              <input
-                id="caregiverLabel"
-                className="booking-input"
-                type="text"
-                placeholder="e.g. Dr. Chen"
-                value={caregiverLabelInput}
-                onChange={e => setCaregiverLabelInput(e.target.value)}
-                disabled={slotsLoading || bookingKey !== null}
-              />
-            </div>
-
-            <div className="booking-inline-actions">
-              <button
-                className="booking-button"
-                type="button"
-                onClick={addSavedCaregiver}
-                disabled={!caregiverId || slotsLoading || bookingKey !== null}
-              >
-                Save caregiver
-              </button>
-            </div>
-          </div>
-        )}
+        {caregiverOptionsError && <div className="booking-alert error">{caregiverOptionsError}</div>}
 
         <div className="booking-row booking-row-tight">
           <div className="booking-field">
@@ -355,7 +367,7 @@ export default function PatientAppointmentBooking() {
               className="booking-select"
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value as any)}
-              disabled={slotsLoading || bookingKey !== null || slots.length === 0}
+              disabled={slotsLoading || bookingKey !== null || visibleSlots.length === 0}
             >
               <option value="all">All available days</option>
               {availableDateKeys.map(k => (
@@ -370,8 +382,8 @@ export default function PatientAppointmentBooking() {
             <button
               className="booking-button secondary"
               type="button"
-              onClick={() => caregiverId && loadSlots(caregiverId)}
-              disabled={!caregiverId || slotsLoading || bookingKey !== null}
+              onClick={loadAvailability}
+              disabled={slotsLoading || bookingKey !== null}
             >
               {slotsLoading ? "Refreshing..." : "Refresh"}
             </button>
@@ -382,50 +394,104 @@ export default function PatientAppointmentBooking() {
       {slotsError && <div className="booking-alert error">{slotsError}</div>}
 
       <div className="booking-results">
-        {!caregiverId && <div className="booking-empty">Choose a caregiver to see available slots.</div>}
-        {caregiverId && !slotsLoading && !slotsError && slots.length === 0 && (
-          <div className="booking-empty">No available slots found for this caregiver.</div>
-        )}
-
-        {grouped.map(([dayKey, daySlots]) => (
-          <div key={dayKey} className="booking-day">
-            <div className="booking-day-header">
-              <div className="booking-day-title">{formatLocalDateHeading(dayKey)}</div>
-              <div className="booking-day-count">{daySlots.length} slot(s)</div>
+        {!slotsLoading && !slotsError && allSlots.length > 0 && (
+          <div className="booking-pagination" role="navigation" aria-label="Appointment slots pagination">
+            <div className="booking-pagination-left">
+              <div className="booking-pagination-count">
+                Showing <strong>{totalSlots === 0 ? 0 : (safePage - 1) * pageSize + 1}</strong>–
+                <strong>{Math.min(safePage * pageSize, totalSlots)}</strong> of <strong>{totalSlots}</strong>
+              </div>
             </div>
 
-            <div className="booking-slots">
-              {daySlots.map(s => {
-                const key = slotKey(s);
-                const dur = calcDurationMinutes(s.start, s.end);
-                const isBookingThis = bookingKey === key;
-                return (
-                  <div key={key} className="booking-slot">
-                    <div className="booking-slot-time">
-                      <div className="booking-slot-time-main">
-                        {formatLocalTime(s.start)} – {formatLocalTime(s.end)}
-                      </div>
-                      <div className="booking-slot-time-sub">
-                        Caregiver #{s.caregiverId}
-                        {dur ? ` • ${dur} min` : ""}
-                      </div>
-                    </div>
-                    <div className="booking-slot-actions">
-                      <button
-                        className="slot-book-button"
-                        type="button"
-                        onClick={() => handleBook(s)}
-                        disabled={slotsLoading || bookingKey !== null}
-                      >
-                        {isBookingThis ? "Booking..." : "Book"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="booking-pagination-right">
+              <label className="booking-pagination-label" htmlFor="pageSize">
+                Per page
+              </label>
+              <select
+                id="pageSize"
+                className="booking-select booking-pagination-select"
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value) as 10 | 20 | 50)}
+                disabled={slotsLoading || bookingKey !== null}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+
+              <button
+                className="booking-button secondary booking-pagination-button"
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={slotsLoading || bookingKey !== null || safePage <= 1}
+              >
+                Previous
+              </button>
+              <div className="booking-pagination-page">
+                Page <strong>{safePage}</strong> / <strong>{totalPages}</strong>
+              </div>
+              <button
+                className="booking-button secondary booking-pagination-button"
+                type="button"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={slotsLoading || bookingKey !== null || safePage >= totalPages}
+              >
+                Next
+              </button>
             </div>
           </div>
-        ))}
+        )}
+
+        <div className="booking-results-scroll">
+          {!slotsLoading && !slotsError && allSlots.length === 0 && (
+            <div className="booking-empty">No available slots found.</div>
+          )}
+
+          {!slotsLoading && !slotsError && allSlots.length > 0 && totalSlots === 0 && (
+            <div className="booking-empty">No available slots match your filters.</div>
+          )}
+
+          {grouped.map(([dayKey, daySlots]) => (
+            <div key={dayKey} className="booking-day">
+              <div className="booking-day-header">
+                <div className="booking-day-title">{formatLocalDateHeading(dayKey)}</div>
+                <div className="booking-day-count">{daySlots.length} slot(s)</div>
+              </div>
+
+              <div className="booking-slots">
+                {daySlots.map(s => {
+                  const key = slotKey(s);
+                  const dur = calcDurationMinutes(s.start, s.end);
+                  const isBookingThis = bookingKey === key;
+                  const busy = slotsLoading || bookingKey !== null || confirmSlot !== null;
+                  return (
+                    <div key={key} className="booking-slot">
+                      <div className="booking-slot-time">
+                        <div className="booking-slot-time-main">
+                          {formatLocalTime(s.start)} – {formatLocalTime(s.end)}
+                        </div>
+                        <div className="booking-slot-time-sub">
+                          {displayCaregiverName(s.caregiver)}
+                          {dur ? ` • ${dur} min` : ""}
+                        </div>
+                      </div>
+                      <div className="booking-slot-actions">
+                        <button
+                          className="slot-book-button"
+                          type="button"
+                          onClick={() => setConfirmSlot(s)}
+                          disabled={busy}
+                        >
+                          {isBookingThis ? "Booking..." : "Book"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

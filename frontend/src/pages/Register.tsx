@@ -5,6 +5,8 @@ import AuthLayout from "../components/AuthLayout";
 
 export default function Register() {
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<"patient" | "caregiver">("patient");
@@ -28,13 +30,18 @@ export default function Register() {
       return;
     }
 
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("Please enter your first and last name");
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (role === "patient") {
-        await registerPatient({ email, password });
+        await registerPatient({ email, password, firstName: firstName.trim(), lastName: lastName.trim() });
       } else {
-        await registerCaregiver({ email, password });
+        await registerCaregiver({ email, password, firstName: firstName.trim(), lastName: lastName.trim() });
       }
       setSuccess(true);
       setTimeout(() => {
@@ -90,11 +97,39 @@ export default function Register() {
         </div>
 
         <div className="form-group">
+          <label htmlFor="firstName">First name</label>
+          <input
+            id="firstName"
+            type="text"
+            placeholder="Enter your first name"
+            value={firstName}
+            onChange={e => setFirstName(e.target.value)}
+            required
+            disabled={loading}
+            autoComplete="given-name"
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="lastName">Last name</label>
+          <input
+            id="lastName"
+            type="text"
+            placeholder="Enter your last name"
+            value={lastName}
+            onChange={e => setLastName(e.target.value)}
+            required
+            disabled={loading}
+            autoComplete="family-name"
+          />
+        </div>
+
+        <div className="form-group">
           <label htmlFor="password">Password</label>
           <input
             id="password"
             type="password"
-            placeholder="Create a password (min. 6 characters)"
+            placeholder="Create a password (min. 8 characters)"
             value={password}
             onChange={e => setPassword(e.target.value)}
             required

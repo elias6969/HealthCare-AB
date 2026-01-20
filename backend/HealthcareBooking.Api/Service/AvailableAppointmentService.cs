@@ -14,14 +14,13 @@ public class AvailableAppointmentService
         _context = context;
     }
 
-    // Returns future appointment slots for a caregiver,
+    // Returns future appointment slots for a single caregiver,
     // enriched with caregiver display information.
     public async Task<IReadOnlyList<AvailableAppointmentResponse>>
         GetAvailableSlotsAsync(int caregiverId)
     {
         var now = DateTime.UtcNow;
 
-        // Load caregiver display info ONCE
         var caregiver = await _context.Users
             .Where(u => u.Id == caregiverId && u.Role == UserRole.Caregiver)
             .Select(u => new CaregiverSummaryDto(
@@ -33,15 +32,11 @@ public class AvailableAppointmentService
         if (caregiver == null)
             return Array.Empty<AvailableAppointmentResponse>();
 
-        // Load future availability windows
         var availabilities = await _context.Availabilities
-            .Where(a =>
-                a.CaregiverId == caregiverId &&
-                a.End > now)
+            .Where(a => a.CaregiverId == caregiverId && a.End > now)
             .OrderBy(a => a.Start)
             .ToListAsync();
 
-        // Load future booked appointments
         var appointments = await _context.Appointments
             .Where(a =>
                 a.CaregiverId == caregiverId &&
@@ -50,7 +45,77 @@ public class AvailableAppointmentService
             .OrderBy(a => a.Start)
             .ToListAsync();
 
-        var availableSlots = new List<AvailableAppointmentResponse>();
+        return BuildSlots(caregiver, availabilities, appointments, now);
+    }
+
+    // Returns future appointment slots across ALL caregivers
+    public async Task<IReadOnlyList<AvailableAppointmentResponse>>
+        GetAllAvailableSlotsAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        // Load all caregivers with display info
+        var caregivers = await _context.Users
+            .Where(u => u.Role == UserRole.Caregiver)
+            .Select(u => new CaregiverSummaryDto(
+                u.Id,
+                u.FirstName,
+                u.LastName))
+            .ToListAsync();
+
+        if (caregivers.Count == 0)
+            return Array.Empty<AvailableAppointmentResponse>();
+
+        var caregiverIds = caregivers.Select(c => c.Id).ToList();
+
+        // Load all future availabilities
+        var availabilities = await _context.Availabilities
+            .Where(a =>
+                caregiverIds.Contains(a.CaregiverId) &&
+                a.End > now)
+            .OrderBy(a => a.Start)
+            .ToListAsync();
+
+        // Load all future booked appointments
+        var appointments = await _context.Appointments
+            .Where(a =>
+                caregiverIds.Contains(a.CaregiverId) &&
+                a.Status == AppointmentStatus.Booked &&
+                a.End > now)
+            .OrderBy(a => a.Start)
+            .ToListAsync();
+
+        var results = new List<AvailableAppointmentResponse>();
+
+        foreach (var caregiver in caregivers)
+        {
+            var caregiverAvailabilities = availabilities
+                .Where(a => a.CaregiverId == caregiver.Id)
+                .ToList();
+
+            var caregiverAppointments = appointments
+                .Where(a => a.CaregiverId == caregiver.Id)
+                .ToList();
+
+            results.AddRange(
+                BuildSlots(
+                    caregiver,
+                    caregiverAvailabilities,
+                    caregiverAppointments,
+                    now));
+        }
+
+        return results;
+    }
+
+    // Shared slot-splitting logic (single source of truth)
+    private static List<AvailableAppointmentResponse> BuildSlots(
+        CaregiverSummaryDto caregiver,
+        List<Availability> availabilities,
+        List<Appointment> appointments,
+        DateTime now)
+    {
+        var slots = new List<AvailableAppointmentResponse>();
 
         foreach (var availability in availabilities)
         {
@@ -68,28 +133,19 @@ public class AvailableAppointmentService
 
             foreach (var appointment in overlappingAppointments)
             {
-                TryAddSlot(
-                    availableSlots,
-                    caregiver,
-                    slotStart,
-                    appointment.Start);
+                TryAddSlot(slots, caregiver, slotStart, appointment.Start);
 
                 slotStart = appointment.End < now
                     ? now
                     : appointment.End;
             }
 
-            TryAddSlot(
-                availableSlots,
-                caregiver,
-                slotStart,
-                slotEnd);
+            TryAddSlot(slots, caregiver, slotStart, slotEnd);
         }
 
-        return availableSlots;
+        return slots;
     }
 
-    // Adds a slot only if it represents a real, usable time range.
     private static void TryAddSlot(
         List<AvailableAppointmentResponse> slots,
         CaregiverSummaryDto caregiver,

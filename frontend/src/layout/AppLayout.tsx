@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth, formatRole } from "../auth/AuthContext";
+import { ChartBarIcon, CogIcon } from "../components/ui/Icons";
 import "./layout.css";
 
 export default function AppLayout() {
@@ -19,14 +20,18 @@ export default function AppLayout() {
             to="/dashboard"
             className={`nav-link ${isActive("/dashboard") ? "active" : ""}`}
           >
-            <span className="nav-icon">📊</span>
+            <span className="nav-icon">
+              <ChartBarIcon />
+            </span>
             Dashboard
           </Link>
           <Link
             to="/delete-account"
             className={`nav-link ${isActive("/delete-account") ? "active" : ""}`}
           >
-            <span className="nav-icon">⚙️</span>
+            <span className="nav-icon">
+              <CogIcon />
+            </span>
             Account Settings
           </Link>
         </nav>

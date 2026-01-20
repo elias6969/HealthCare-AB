@@ -9,6 +9,13 @@
   --primary-color: #0066cc; /* Professional healthcare blue */
   --primary-hover: #0052a3; /* Darker blue on hover */
   --primary-light: #e6f2ff; /* Very light blue for backgrounds */
+  /* Secondary healthcare accent (teal) */
+  --accent-color: #0f766e;
+  --accent-hover: #115e59;
+  --accent-light: #ccfbf1;
+  --accent-soft: rgba(15, 118, 110, 0.12);
+  --primary-soft: rgba(0, 102, 204, 0.12);
+
   --secondary-color: #6b7280;
   --success-color: #059669;
   --danger-color: #dc2626;
@@ -16,6 +23,7 @@
   --background: #ffffff; /* Pure white background */
   --background-alt: #f8fafc; /* Slight gray for contrast */
   --surface: #ffffff; /* Pure white for cards */
+  --surface-tint: #fbfdff; /* slight tint to avoid flat pure white everywhere */
   --text-primary: #111827; /* Almost black for maximum contrast */
   --text-secondary: #4b5563; /* Dark gray for secondary text */
   --border-color: #e5e7eb; /* Light gray borders */

@@ -179,13 +179,13 @@
   width: 20px;
   left: 4px;
   bottom: 4px;
-  background-color: white;
+  background-color: rgb(255, 255, 255);
   transition: 0.3s;
   border-radius: 50%;
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: var(--primary-color);
+  background-color: rgb(145, 247, 145);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
