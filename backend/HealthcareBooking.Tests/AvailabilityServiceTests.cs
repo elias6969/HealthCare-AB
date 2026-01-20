@@ -1,4 +1,5 @@
 using HealthcareBooking.Api.Data;
+using HealthcareBooking.Api.Dto;
 using HealthcareBooking.Api.Entities;
 using HealthcareBooking.Api.Service;
 using Microsoft.EntityFrameworkCore;
@@ -25,13 +26,20 @@ public class AvailabilityServiceTests
     {
         // Arrange
         var context = CreateDbContext();
-        var service = CreateService(context);
 
         var caregiver = new User
         {
-            Id = 1,
-            Role = UserRole.Caregiver
+            Email = "caregiver@test.com",
+            FirstName = "Anna",
+            LastName = "Svensson",
+            Role = UserRole.Caregiver,
+            PasswordHash = "hash"
         };
+
+        context.Users.Add(caregiver);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
 
         var start = DateTime.UtcNow.AddHours(1);
         var end = DateTime.UtcNow.AddHours(2);
@@ -55,13 +63,20 @@ public class AvailabilityServiceTests
     {
         // Arrange
         var context = CreateDbContext();
-        var service = CreateService(context);
 
         var patient = new User
         {
-            Id = 2,
-            Role = UserRole.Patient
+            Email = "patient@test.com",
+            FirstName = "Elias",
+            LastName = "Test",
+            Role = UserRole.Patient,
+            PasswordHash = "hash"
         };
+
+        context.Users.Add(patient);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
 
         var start = DateTime.UtcNow.AddHours(1);
         var end = DateTime.UtcNow.AddHours(2);
@@ -76,13 +91,20 @@ public class AvailabilityServiceTests
     {
         // Arrange
         var context = CreateDbContext();
-        var service = CreateService(context);
 
         var caregiver = new User
         {
-            Id = 3,
-            Role = UserRole.Caregiver
+            Email = "caregiver2@test.com",
+            FirstName = "Anna",
+            LastName = "Svensson",
+            Role = UserRole.Caregiver,
+            PasswordHash = "hash"
         };
+
+        context.Users.Add(caregiver);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
 
         var start = DateTime.UtcNow.AddHours(2);
         var end = DateTime.UtcNow.AddHours(1);

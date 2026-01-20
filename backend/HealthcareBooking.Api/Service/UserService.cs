@@ -20,6 +20,8 @@ public class UserService
     public async Task<User> CreateAccountAsync(
         string email,
         string password,
+        string firstname,
+        string lastname,
         UserRole role)
     {
         // Make sure the email isn't already registered
@@ -32,7 +34,9 @@ public class UserService
         var user = new User
         {
             Email = email,
-            Role = role
+            Role = role,
+            FirstName = firstname,
+            LastName = lastname
         };
 
         // Hash the password before storing it
