@@ -27,12 +27,21 @@
   gap: 2rem;
 }
 
+.dashboard-alert {
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(90deg, var(--primary-soft), var(--accent-soft));
+  border: 1.5px solid rgba(17, 24, 39, 0.18);
+  color: #111827;
+  font-weight: 800;
+}
+
 .dashboard-section {
-  background: #ffffff;
+  background: var(--surface-tint);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color);
+  border: 1px solid black;
   outline: none;
 }
 
@@ -126,7 +135,7 @@
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color);
+  border: 1px solid black;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -146,9 +155,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--primary-light);
+  background: linear-gradient(135deg, var(--primary-light), var(--accent-light));
   border-radius: 12px;
   flex-shrink: 0;
+  color: var(--primary-color);
+}
+
+.stat-icon svg {
+  width: 30px;
+  height: 30px;
+  display: block;
 }
 
 .stat-content {
@@ -178,7 +194,7 @@
 
 .action-button {
   background: var(--primary-light);
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid rgb(37, 37, 37);
   border-radius: 10px;
   padding: 1.25rem;
   display: flex;
@@ -207,6 +223,15 @@
 
 .action-icon {
   font-size: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon svg {
+  width: 26px;
+  height: 26px;
+  display: block;
 }
 
 /* Appointments List */
@@ -352,6 +377,13 @@
   border-radius: 8px;
   border: 1px solid var(--border-color);
   flex-shrink: 0;
+  color: var(--primary-color);
+}
+
+.activity-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 .activity-content {

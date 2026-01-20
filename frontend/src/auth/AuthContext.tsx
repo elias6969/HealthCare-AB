@@ -5,6 +5,8 @@ interface User {
   id: number;
   email: string;
   role: string | number;
+  firstName?: string;
+  lastName?: string;
 }
 
 export function normalizeRoleId(role: string | number | undefined): 0 | 1 | null {
