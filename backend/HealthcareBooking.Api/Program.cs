@@ -30,6 +30,7 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<AvailabilityService>();
 builder.Services.AddScoped<AvailableAppointmentService>();
+builder.Services.AddScoped<AppointmentService>();
 
 // Authentication / Authorization
 builder.Services

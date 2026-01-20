@@ -37,7 +37,7 @@ public class AvailabilityController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return Conflict(ex.Message);
         }
     }
 
