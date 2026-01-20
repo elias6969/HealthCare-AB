@@ -1,4 +1,5 @@
 import { useAuth, formatRole, normalizeRoleId } from "../auth/AuthContext";
+import PatientAppointmentBooking from "../components/appointments/PatientAppointmentBooking";
 import "./Dashboard.css";
 
 export default function Dashboard() {
@@ -94,19 +95,19 @@ export default function Dashboard() {
           <div className="actions-grid">
             {isPatient && (
               <>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">➕</span>
                   <span>Book New Appointment</span>
                 </button>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">📋</span>
                   <span>View Appointments</span>
                 </button>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">💊</span>
                   <span>My Prescriptions</span>
                 </button>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">📄</span>
                   <span>Medical Records</span>
                 </button>
@@ -115,19 +116,19 @@ export default function Dashboard() {
 
             {isCaregiver && (
               <>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">📅</span>
                   <span>Set Availability</span>
                 </button>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">👥</span>
                   <span>View Patients</span>
                 </button>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">📊</span>
                   <span>View Schedule</span>
                 </button>
-                <button className="action-button">
+                <button className="action-button" type="button">
                   <span className="action-icon">⚙️</span>
                   <span>Manage Profile</span>
                 </button>
@@ -135,6 +136,12 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {isPatient && (
+          <div className="dashboard-section">
+            <PatientAppointmentBooking />
+          </div>
+        )}
 
         {/* Upcoming Appointments / Today's Schedule */}
         <div className="dashboard-section">

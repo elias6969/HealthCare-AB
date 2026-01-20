@@ -33,6 +33,8 @@ public class UsersController : ControllerBase
             var user = await _userService.CreateAccountAsync(
                 dto.Email,
                 dto.Password,
+                dto.FirstName,
+                dto.LastName,
                 UserRole.Patient
             );
 
@@ -54,6 +56,8 @@ public class UsersController : ControllerBase
             var user = await _userService.CreateAccountAsync(
                 dto.Email,
                 dto.Password,
+                dto.FirstName,
+                dto.LastName,
                 UserRole.Caregiver
             );
 
@@ -86,7 +90,9 @@ public class UsersController : ControllerBase
             {
                 user.Id,
                 user.Email,
-                user.Role
+                user.Role,
+                user.FirstName,
+                user.LastName
             }
         });
     }
@@ -122,6 +128,8 @@ public class UsersController : ControllerBase
             user.Id,
             user.Email,
             user.Role,
+            user.FirstName,
+            user.LastName,
             user.CreatedAt
         });
     }

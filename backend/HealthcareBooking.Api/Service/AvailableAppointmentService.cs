@@ -1,4 +1,5 @@
 using HealthcareBooking.Api.Data;
+using HealthcareBooking.Api.Dto;
 using HealthcareBooking.Api.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,14 +14,26 @@ public class AvailableAppointmentService
         _context = context;
     }
 
-    // Returns future appointment slots for a caregiver.
-    // Slots are calculated by subtracting booked appointments from availability.
-    public async Task<IReadOnlyList<AvailableSlot>> GetAvailableSlotsAsync(int caregiverId)
+    // Returns future appointment slots for a caregiver,
+    // enriched with caregiver display information.
+    public async Task<IReadOnlyList<AvailableAppointmentResponse>>
+        GetAvailableSlotsAsync(int caregiverId)
     {
-        // Capture the current time once to keep comparisons consistent
         var now = DateTime.UtcNow;
 
-        // Load future availability windows for the caregiver
+        // Load caregiver display info ONCE
+        var caregiver = await _context.Users
+            .Where(u => u.Id == caregiverId && u.Role == UserRole.Caregiver)
+            .Select(u => new CaregiverSummaryDto(
+                u.Id,
+                u.FirstName,
+                u.LastName))
+            .SingleOrDefaultAsync();
+
+        if (caregiver == null)
+            return Array.Empty<AvailableAppointmentResponse>();
+
+        // Load future availability windows
         var availabilities = await _context.Availabilities
             .Where(a =>
                 a.CaregiverId == caregiverId &&
@@ -28,7 +41,7 @@ public class AvailableAppointmentService
             .OrderBy(a => a.Start)
             .ToListAsync();
 
-        // Load future, booked appointments for the caregiver
+        // Load future booked appointments
         var appointments = await _context.Appointments
             .Where(a =>
                 a.CaregiverId == caregiverId &&
@@ -37,18 +50,16 @@ public class AvailableAppointmentService
             .OrderBy(a => a.Start)
             .ToListAsync();
 
-        var availableSlots = new List<AvailableSlot>();
+        var availableSlots = new List<AvailableAppointmentResponse>();
 
         foreach (var availability in availabilities)
         {
-            // Ensure we never return a slot starting in the past
             var slotStart = availability.Start < now
                 ? now
                 : availability.Start;
 
             var slotEnd = availability.End;
 
-            // Find appointments that overlap this availability window
             var overlappingAppointments = appointments
                 .Where(a =>
                     a.Start < slotEnd &&
@@ -57,23 +68,20 @@ public class AvailableAppointmentService
 
             foreach (var appointment in overlappingAppointments)
             {
-                // Add free time before the appointment, if any
                 TryAddSlot(
                     availableSlots,
-                    caregiverId,
+                    caregiver,
                     slotStart,
                     appointment.Start);
 
-                // Move the pointer past the appointment
                 slotStart = appointment.End < now
                     ? now
                     : appointment.End;
             }
 
-            // Add remaining free time after the last appointment
             TryAddSlot(
                 availableSlots,
-                caregiverId,
+                caregiver,
                 slotStart,
                 slotEnd);
         }
@@ -82,25 +90,22 @@ public class AvailableAppointmentService
     }
 
     // Adds a slot only if it represents a real, usable time range.
-    // Prevents zero-length or microsecond slots caused by time precision.
     private static void TryAddSlot(
-        List<AvailableSlot> slots,
-        int caregiverId,
+        List<AvailableAppointmentResponse> slots,
+        CaregiverSummaryDto caregiver,
         DateTime start,
         DateTime end)
     {
         if (end <= start)
             return;
 
-        // Ignore extremely short slots that are not meaningful for appointments
         if (end - start < TimeSpan.FromSeconds(1))
             return;
 
-        slots.Add(new AvailableSlot
-        {
-            CaregiverId = caregiverId,
-            Start = start,
-            End = end
-        });
+        slots.Add(new AvailableAppointmentResponse(
+            caregiver,
+            start,
+            end
+        ));
     }
 }
