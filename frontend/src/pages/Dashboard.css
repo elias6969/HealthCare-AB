@@ -404,6 +404,115 @@
   gap: 1rem;
 }
 
+.dashboard-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-mini-button {
+  height: 34px;
+  border-radius: 8px;
+  padding: 0 0.85rem;
+  border: 1.5px solid var(--primary-color);
+  background: var(--primary-color);
+  color: #111827;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-mini-button:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.dashboard-mini-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dashboard-mini-button.secondary {
+  background: #ffffff;
+  border-color: rgba(17, 24, 39, 0.18);
+}
+
+.dashboard-mini-button.secondary:hover:not(:disabled) {
+  background: rgba(17, 24, 39, 0.06);
+  border-color: rgba(17, 24, 39, 0.25);
+}
+
+.dashboard-inline-error {
+  margin: 0.5rem 0 0.25rem 0;
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.dashboard-empty {
+  padding: 0.85rem;
+  border-radius: 10px;
+  border: 1.5px dashed var(--border-color);
+  background: rgba(255, 255, 255, 0.7);
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.dashboard-appointment-actions {
+  margin-top: 0.75rem;
+}
+
+.dashboard-reschedule {
+  border-top: 1px solid rgba(17, 24, 39, 0.1);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.dashboard-reschedule-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .dashboard-reschedule-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-reschedule-label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.dashboard-reschedule-input {
+  height: 38px;
+  border-radius: 10px;
+  padding: 0 0.85rem;
+  border: 1.5px solid var(--border-color);
+  background: #ffffff;
+  color: #111827;
+  outline: none;
+}
+
+.dashboard-reschedule-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+.dashboard-reschedule-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
 .appointment-item {
   background: var(--primary-light);
   border: 1.5px solid var(--border-color);

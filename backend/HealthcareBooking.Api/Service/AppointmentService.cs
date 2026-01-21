@@ -104,4 +104,60 @@ public class AppointmentService
         await _context.SaveChangesAsync();
         return appointment;
     }
+
+    public async Task<IReadOnlyList<Appointment>>
+    GetCaregiverAppointmentsAsync(int caregiverId)
+    {
+        var now = DateTime.UtcNow;
+
+        return await _context.Appointments
+            .Where(a => a.CaregiverId == caregiverId &&
+                        a.Status == AppointmentStatus.Booked && a.End > now)
+            .OrderBy(a => a.Start)
+            .ToListAsync();
+    }
+
+    public async Task<Appointment> RescheduleByCaregiverAsync(int caregiverId,
+                                                              int appointmentId,
+                                                              DateTime newStart,
+                                                              DateTime newEnd)
+    {
+        var appointment = await _context.Appointments.FirstOrDefaultAsync(
+            a => a.Id == appointmentId && a.Status == AppointmentStatus.Booked);
+
+        if (appointment == null)
+            throw new KeyNotFoundException("Appointment not found.");
+
+        if (appointment.CaregiverId != caregiverId)
+            throw new UnauthorizedAccessException();
+
+        newStart = DateTime.SpecifyKind(newStart, DateTimeKind.Utc);
+        newEnd = DateTime.SpecifyKind(newEnd, DateTimeKind.Utc);
+
+        if (newStart >= newEnd)
+            throw new InvalidOperationException("Invalid time range.");
+
+        // Ensure still inside caregiver availability
+        var availabilityExists = await _context.Availabilities.AnyAsync(
+            a => a.CaregiverId == caregiverId && a.Start <= newStart &&
+                 a.End >= newEnd);
+
+        if (!availabilityExists)
+            throw new InvalidOperationException("New time is outside availability.");
+
+        // Prevent overlap with other appointments
+        var overlap = await _context.Appointments.AnyAsync(
+            a => a.CaregiverId == caregiverId && a.Id != appointment.Id &&
+                 a.Status == AppointmentStatus.Booked && a.Start < newEnd &&
+                 a.End > newStart);
+
+        if (overlap)
+            throw new InvalidOperationException("Time slot already booked.");
+
+        appointment.Start = newStart;
+        appointment.End = newEnd;
+
+        await _context.SaveChangesAsync();
+        return appointment;
+    }
 }

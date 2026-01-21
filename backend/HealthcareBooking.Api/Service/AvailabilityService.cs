@@ -37,4 +37,13 @@ public class AvailabilityService
 
         return availability;
     }
+
+    public async Task<IReadOnlyList<Availability>>
+    GetCaregiverAvailabilityAsync(int caregiverId)
+    {
+        return await _context.Availabilities
+            .Where(a => a.CaregiverId == caregiverId)
+            .OrderBy(a => a.Start)
+            .ToListAsync();
+    }
 }
