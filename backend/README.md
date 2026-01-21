@@ -1,9 +1,8 @@
 # HealthcareBooking API (Backend)
 
 ASP.NET Core Web API for the **Healthcare AB appointment booking system**.
-This backend provides secure authentication, appointment booking, caregiver scheduling, and role-based access control.
 
-The API is designed with a clear separation of concerns and follows professional SDLC and DevOps practices.
+This backend provides secure authentication, appointment booking, caregiver availability management, and role-based access control. The system is designed with a clear separation of concerns and follows professional SDLC and DevOps practices.
 
 ---
 
@@ -23,37 +22,40 @@ The API is designed with a clear separation of concerns and follows professional
 The backend follows a layered architecture:
 
 * **Controllers**
-  Handle HTTP requests, authentication, authorization, and input validation.
+  Handle HTTP requests, authentication, authorization, and request validation.
 
 * **Services**
-  Contain business logic (booking rules, availability checks, role enforcement).
+  Contain all business logic, including booking rules, availability checks, and role enforcement.
 
 * **Data Layer**
-  Entity Framework Core with PostgreSQL for persistence.
+  Uses Entity Framework Core with PostgreSQL for persistence.
 
-This separation keeps controllers thin and business rules testable.
+This structure keeps controllers thin and makes business logic easy to test and maintain.
 
 ---
 
 ## Authentication & Authorization
 
 * JWT-based authentication
-* Tokens include:
+* Tokens contain:
 
   * User ID
   * Email
   * Role (Patient / Caregiver)
-* Role-based authorization using `[Authorize(Roles = "...")]`
+* Role-based authorization is enforced using `[Authorize(Roles = "...")]`
 
 ### Roles
 
 * **Patient**
 
-  * Book and reschedule appointments
+  * Book appointments
+  * Reschedule own appointments
+
 * **Caregiver**
 
-  * Manage availability
-  * View and reschedule own appointments
+  * Create and manage availability
+  * View upcoming appointments
+  * Reschedule own appointments
 
 ---
 
@@ -79,7 +81,7 @@ This separation keeps controllers thin and business rules testable.
 * `POST /v1/api/availability`
 * `GET /v1/api/availability/me`
 
-All protected endpoints require:
+All protected endpoints require the following HTTP header:
 
 ```
 Authorization: Bearer <JWT>
@@ -95,8 +97,8 @@ Authorization: Bearer <JWT>
   * `User`
   * `Appointment`
   * `Availability`
-* Relationships are enforced via EF Core
-* All date/time values are stored in UTC
+* Relationships are enforced via Entity Framework Core
+* All date and time values are stored in **UTC**
 
 ---
 
@@ -111,24 +113,24 @@ Authorization: Bearer <JWT>
   * Double-booking prevention
 * Tests are located in:
 
-  ```
-  backend/HealthcareBooking.Tests
-  ```
+```
+backend/HealthcareBooking.Tests
+```
 
 ---
 
 ## Continuous Integration (CI)
 
-The project uses **GitHub Actions** for CI.
+The project uses **GitHub Actions** for continuous integration.
 
-The pipeline:
+The CI pipeline:
 
 * Restores dependencies
 * Builds the solution
 * Runs unit tests
 * Collects test coverage
 
-CI configuration:
+Configuration file:
 
 ```
 .github/workflows/ci.yml
@@ -142,23 +144,25 @@ CI configuration:
 
 * .NET 8 SDK
 * PostgreSQL
-* Connection string configured in `appsettings.json`
+* Database connection string configured in `appsettings.json`
 
 ### Run
 
+The backend is typically started using the HTTPS launch profile:
+
 ```bash
-dotnet run --project HealthcareBooking.Api
+dotnet run --launch-profile https
 ```
 
-The API will start with HTTPS enabled and Swagger available in development mode.
+When running in development mode, Swagger UI is available for API exploration.
 
 ---
 
 ## Configuration
 
-JWT and database settings are configured via `appsettings.json`:
+Application settings are configured via `appsettings.json`, including:
 
-* JWT issuer, audience, signing key
+* JWT issuer, audience, and signing key
 * Token expiration time
 * Database connection string
 
@@ -166,7 +170,7 @@ JWT and database settings are configured via `appsettings.json`:
 
 ## SDLC & Quality Notes
 
-* Development followed a sprint-based SDLC process
-* Core risks (security, double booking, data integrity) were addressed early
+* Development followed a sprint-based SDLC approach
+* Key risks (security, double booking, data integrity) were addressed early
 * Automated testing and CI were integrated before feature completion
 * Emphasis was placed on correctness, security, and maintainability
