@@ -1,73 +1,92 @@
-# React + TypeScript + Vite
+# HealthCare-AB Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript (Vite) frontend for **Healthcare AB**.
 
-Currently, two official plugins are available:
+## What’s in this frontend
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Auth**: login + register (patient/caregiver), JWT stored in `localStorage`
+- **Protected app shell**: dashboard + account settings
+- **Patient**: book appointment from available slots
+- **Caregiver**: set availability, view upcoming appointments, reschedule appointments
 
-## React Compiler
+## Requirements
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+- Node.js + npm
+- A running backend API
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Install dependencies:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Create a `.env` file (optional) to configure the backend URL:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+VITE_API_URL=https://localhost:7017/v1/api
 ```
+
+If `VITE_API_URL` is not set, the app falls back to **`https://localhost:7017/v1/api`**.
+
+## Run
+
+```bash
+npm run dev
+```
+
+Build:
+
+```bash
+npm run build
+```
+
+Preview build:
+
+```bash
+npm run preview
+```
+
+Lint:
+
+```bash
+npm run lint
+```
+
+## Routes
+
+- `/login`
+- `/register`
+- `/dashboard` (protected)
+- `/delete-account` (protected)
+
+## API usage
+
+All requests go through Axios in `src/api/http.ts` and automatically attach:
+
+- `Authorization: Bearer <token>` (when `localStorage.token` exists)
+
+Endpoints used:
+
+- **Users/Auth** (`src/api/users.ts`)
+  - `POST /users/login`
+  - `POST /users/register/patient`
+  - `POST /users/register/caregiver`
+  - `DELETE /users/{id}`
+- **Appointments** (`src/api/appointments.ts`)
+  - `GET /appointments/available`
+  - `POST /appointments`
+  - `GET /appointments/caregiver/me`
+  - `PATCH /appointments/{id}/caregiver/reschedule`
+- **Availability** (`src/api/availability.ts`)
+  - `POST /availability`
+  - `GET /availability/me`
+
+## Project structure (high level)
+
+- `src/api/` – API clients (Axios wrappers)
+- `src/auth/` – auth context + helpers
+- `src/pages/` – routed pages (Login/Register/Dashboard/DeleteAccount)
+- `src/components/` – feature components + UI primitives
+- `src/layout/` – main app layout (sidebar/topbar)

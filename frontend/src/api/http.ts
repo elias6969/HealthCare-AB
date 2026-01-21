@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const DEFAULT_API_URL = "https://localhost:7017/v1/api";
+
 export const http = axios.create({
-  baseURL: "https://localhost:7017/v1/api",
+  baseURL: (import.meta.env.VITE_API_URL as string | undefined) ?? DEFAULT_API_URL,
 });
 
 http.interceptors.request.use(config => {

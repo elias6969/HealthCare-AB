@@ -4,6 +4,11 @@ import PatientAppointmentBooking from "../components/appointments/PatientAppoint
 import Modal from "../components/ui/Modal";
 import CaregiverAvailability from "../components/availability/CaregiverAvailability";
 import {
+  caregiverRescheduleAppointment,
+  listMyCaregiverAppointments,
+  type Appointment,
+} from "../api/appointments";
+import {
   CalendarIcon,
   ChartBarIcon,
   CheckCircleIcon,
@@ -31,11 +36,137 @@ export default function Dashboard() {
   const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [dashboardToast, setDashboardToast] = useState<string>("");
 
+  // Caregiver: real appointments list + reschedule state
+  const [caregiverAppointments, setCaregiverAppointments] = useState<Appointment[]>([]);
+  const [caregiverLoading, setCaregiverLoading] = useState(false);
+  const [caregiverError, setCaregiverError] = useState("");
+  const [rescheduleOpenFor, setRescheduleOpenFor] = useState<number | null>(null);
+  const [rescheduleStart, setRescheduleStart] = useState("");
+  const [rescheduleEnd, setRescheduleEnd] = useState("");
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
+
   useEffect(() => {
     if (!dashboardToast) return;
     const t = window.setTimeout(() => setDashboardToast(""), 4000);
     return () => window.clearTimeout(t);
   }, [dashboardToast]);
+
+  function extractErrorMessage(err: any, fallback: string) {
+    const status = err?.response?.status;
+    if (status === 401 || status === 403) return "You are not authorized. Please log in again.";
+    const data = err?.response?.data;
+    if (typeof data === "string" && data.trim()) return data;
+    if (data?.error && typeof data.error === "string") return data.error;
+    if (err?.message && typeof err.message === "string") return err.message;
+    return fallback;
+  }
+
+  function formatLocalTime(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function formatDayMonth(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return { day: "?", month: "?" };
+    const day = String(d.getDate());
+    const month = d.toLocaleString(undefined, { month: "short" });
+    return { day, month };
+  }
+
+  function isoToLocalDateTimeInput(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+  }
+
+  function displayPatientLabel(a: Appointment) {
+    const p: any = (a as any).patient;
+    const id = p?.id ?? a.patientId;
+    const full = `${(p?.firstName ?? "").trim()} ${(p?.lastName ?? "").trim()}`.trim();
+    if (full) return full;
+    if (p?.email) return p.email;
+    return `Patient #${id}`;
+  }
+
+  async function loadCaregiverAppointments() {
+    if (!isCaregiver) return;
+    setCaregiverError("");
+    setCaregiverLoading(true);
+    try {
+      const data = await listMyCaregiverAppointments();
+      setCaregiverAppointments(data ?? []);
+    } catch (err: any) {
+      setCaregiverAppointments([]);
+      setCaregiverError(extractErrorMessage(err, "Failed to load caregiver appointments."));
+    } finally {
+      setCaregiverLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!isCaregiver) return;
+    loadCaregiverAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCaregiver]);
+
+  const upcomingCaregiverAppointments = isCaregiver
+    ? caregiverAppointments
+        .filter(a => {
+          const t = new Date(a.start).getTime();
+          return !Number.isNaN(t) && t >= Date.now();
+        })
+        .sort((a, b) => a.start.localeCompare(b.start))
+    : [];
+
+  function openReschedule(a: Appointment) {
+    setRescheduleError("");
+    setRescheduleOpenFor(a.id);
+    setRescheduleStart(isoToLocalDateTimeInput(a.start));
+    setRescheduleEnd(isoToLocalDateTimeInput(a.end));
+  }
+
+  async function saveReschedule(appointmentId: number) {
+    setRescheduleError("");
+
+    if (!rescheduleStart || !rescheduleEnd) {
+      setRescheduleError("Please select both start and end.");
+      return;
+    }
+
+    const startLocal = new Date(rescheduleStart);
+    const endLocal = new Date(rescheduleEnd);
+    if (Number.isNaN(startLocal.getTime()) || Number.isNaN(endLocal.getTime())) {
+      setRescheduleError("Invalid date/time.");
+      return;
+    }
+    if (endLocal <= startLocal) {
+      setRescheduleError("End must be after start.");
+      return;
+    }
+
+    setRescheduleSaving(true);
+    try {
+      await caregiverRescheduleAppointment(appointmentId, {
+        newStart: startLocal.toISOString(),
+        newEnd: endLocal.toISOString(),
+      });
+      setDashboardToast("Appointment rescheduled successfully.");
+      setRescheduleOpenFor(null);
+      await loadCaregiverAppointments();
+    } catch (err: any) {
+      setRescheduleError(extractErrorMessage(err, "Failed to reschedule appointment."));
+    } finally {
+      setRescheduleSaving(false);
+    }
+  }
 
   const displayName =
     user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email;
@@ -215,7 +346,7 @@ export default function Dashboard() {
 
         {/* Upcoming Appointments / Today's Schedule */}
         <div className="dashboard-section">
-          <h2>{isPatient ? "Upcoming Appointments" : "Today's Schedule"}</h2>
+          <h2>{isPatient ? "Upcoming Appointments" : "Upcoming Appointments"}</h2>
           <div className="appointments-list">
             {isPatient ? (
               <>
@@ -273,54 +404,107 @@ export default function Dashboard() {
               </>
             ) : (
               <>
-                <div className="appointment-item">
-                  <div className="appointment-time">09:00</div>
-                  <div className="appointment-details">
-                    <div className="appointment-title">Patient: John Smith</div>
-                    <div className="appointment-info">
-                      <span>General Checkup</span>
-                      <span>•</span>
-                      <span>Room 204</span>
-                    </div>
-                  </div>
-                  <div className="appointment-status status-confirmed">Confirmed</div>
+                <div className="dashboard-inline-actions">
+                  <button
+                    className="dashboard-mini-button secondary"
+                    type="button"
+                    onClick={loadCaregiverAppointments}
+                    disabled={caregiverLoading || rescheduleSaving}
+                  >
+                    {caregiverLoading ? "Loading..." : "Refresh"}
+                  </button>
                 </div>
-                <div className="appointment-item">
-                  <div className="appointment-time">10:30</div>
-                  <div className="appointment-details">
-                    <div className="appointment-title">Patient: Emma Wilson</div>
-                    <div className="appointment-info">
-                      <span>Follow-up Consultation</span>
-                      <span>•</span>
-                      <span>Room 204</span>
+
+                {caregiverError && <div className="dashboard-inline-error">{caregiverError}</div>}
+
+                {!caregiverLoading && !caregiverError && upcomingCaregiverAppointments.length === 0 && (
+                  <div className="dashboard-empty">No upcoming appointments.</div>
+                )}
+
+                {upcomingCaregiverAppointments.slice(0, 20).map(a => {
+                  const { day, month } = formatDayMonth(a.start);
+                  const isOpen = rescheduleOpenFor === a.id;
+                  return (
+                    <div key={a.id} className="appointment-item">
+                      <div className="appointment-date" aria-hidden="true">
+                        <div className="date-day">{day}</div>
+                        <div className="date-month">{month}</div>
+                      </div>
+
+                      <div className="appointment-details">
+                        <div className="appointment-title">{displayPatientLabel(a)}</div>
+                        <div className="appointment-info">
+                          <span>
+                            {formatLocalTime(a.start)} – {formatLocalTime(a.end)}
+                          </span>
+                          <span>•</span>
+                          <span>Appointment #{a.id}</span>
+                        </div>
+
+                        <div className="dashboard-appointment-actions">
+                          {!isOpen ? (
+                            <button
+                              className="dashboard-mini-button"
+                              type="button"
+                              onClick={() => openReschedule(a)}
+                              disabled={rescheduleSaving}
+                            >
+                              Reschedule
+                            </button>
+                          ) : (
+                            <div className="dashboard-reschedule">
+                              <div className="dashboard-reschedule-inputs">
+                                <label className="dashboard-reschedule-label">
+                                  Start
+                                  <input
+                                    className="dashboard-reschedule-input"
+                                    type="datetime-local"
+                                    value={rescheduleStart}
+                                    onChange={e => setRescheduleStart(e.target.value)}
+                                    disabled={rescheduleSaving}
+                                  />
+                                </label>
+                                <label className="dashboard-reschedule-label">
+                                  End
+                                  <input
+                                    className="dashboard-reschedule-input"
+                                    type="datetime-local"
+                                    value={rescheduleEnd}
+                                    onChange={e => setRescheduleEnd(e.target.value)}
+                                    disabled={rescheduleSaving}
+                                  />
+                                </label>
+                              </div>
+
+                              {rescheduleError && <div className="dashboard-inline-error">{rescheduleError}</div>}
+
+                              <div className="dashboard-reschedule-actions">
+                                <button
+                                  className="dashboard-mini-button secondary"
+                                  type="button"
+                                  onClick={() => setRescheduleOpenFor(null)}
+                                  disabled={rescheduleSaving}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  className="dashboard-mini-button"
+                                  type="button"
+                                  onClick={() => saveReschedule(a.id)}
+                                  disabled={rescheduleSaving}
+                                >
+                                  {rescheduleSaving ? "Saving..." : "Save"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="appointment-status status-confirmed">Upcoming</div>
                     </div>
-                  </div>
-                  <div className="appointment-status status-confirmed">Confirmed</div>
-                </div>
-                <div className="appointment-item">
-                  <div className="appointment-time">14:00</div>
-                  <div className="appointment-details">
-                    <div className="appointment-title">Patient: Robert Brown</div>
-                    <div className="appointment-info">
-                      <span>Lab Results Review</span>
-                      <span>•</span>
-                      <span>Room 204</span>
-                    </div>
-                  </div>
-                  <div className="appointment-status status-confirmed">Confirmed</div>
-                </div>
-                <div className="appointment-item">
-                  <div className="appointment-time">15:30</div>
-                  <div className="appointment-details">
-                    <div className="appointment-title">Patient: Lisa Anderson</div>
-                    <div className="appointment-info">
-                      <span>Initial Consultation</span>
-                      <span>•</span>
-                      <span>Room 204</span>
-                    </div>
-                  </div>
-                  <div className="appointment-status status-pending">Pending</div>
-                </div>
+                  );
+                })}
               </>
             )}
           </div>

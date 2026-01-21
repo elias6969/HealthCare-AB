@@ -25,6 +25,9 @@ export interface Appointment {
   start: string;
   end: string;
   status: number;
+  // Backend may optionally include more details; we keep it flexible for UI rendering.
+  patient?: { id: number; firstName?: string; lastName?: string; email?: string };
+  caregiver?: { id: number; firstName?: string; lastName?: string; email?: string };
 }
 
 export async function listAvailableAppointmentSlots(caregiverId?: number) {
@@ -52,6 +55,18 @@ export interface RescheduleAppointmentRequest {
 export async function rescheduleAppointment(appointmentId: number, dto: RescheduleAppointmentRequest) {
   // Optional feature: reschedule existing appointment to a new window.
   const res = await http.patch<Appointment>(`/appointments/${appointmentId}/reschedule`, dto);
+  return res.data;
+}
+
+export async function listMyCaregiverAppointments() {
+  // Caregiver-only: list appointments for the authenticated caregiver.
+  const res = await http.get<Appointment[]>("/appointments/caregiver/me");
+  return res.data;
+}
+
+export async function caregiverRescheduleAppointment(appointmentId: number, dto: RescheduleAppointmentRequest) {
+  // Caregiver-only: reschedule an appointment (caregiver flow).
+  const res = await http.patch<Appointment>(`/appointments/${appointmentId}/caregiver/reschedule`, dto);
   return res.data;
 }
 

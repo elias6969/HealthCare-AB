@@ -22,16 +22,15 @@ public class AvailabilityController : ControllerBase
     // POST /v1/api/availability
     // Creates an availability slot for the authenticated caregiver
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateAvailabilityDto dto)
+    public async Task<IActionResult>
+    Create([FromBody] CreateAvailabilityDto dto)
     {
         var user = GetAuthenticatedUser();
 
         try
         {
             var availability = await _availabilityService.CreateAvailabilityAsync(
-                user,
-                dto.Start,
-                dto.End);
+                user, dto.Start, dto.End);
 
             return Created(string.Empty, availability);
         }
@@ -44,14 +43,16 @@ public class AvailabilityController : ControllerBase
     // GET /v1/api/availability/me
     // Returns availability for the authenticated caregiver
     [HttpGet("me")]
-    public IActionResult GetMyAvailability()
+    [Authorize(Roles = "Caregiver")]
+    public async Task<IActionResult> GetMyAvailability()
     {
-        var user = GetAuthenticatedUser();
+        var caregiverId =
+            int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-        if (user.Role != UserRole.Caregiver)
-            return Forbid();
+        var availability =
+            await _availabilityService.GetCaregiverAvailabilityAsync(caregiverId);
 
-        return Ok(user.Availabilities);
+        return Ok(availability);
     }
 
     // Helpers
@@ -65,10 +66,6 @@ public class AvailabilityController : ControllerBase
 
         var role = Enum.Parse<UserRole>(roleClaim!);
 
-        return new User
-        {
-            Id = userId,
-            Role = role
-        };
+        return new User { Id = userId, Role = role };
     }
 }
